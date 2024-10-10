@@ -1,6 +1,5 @@
 # Imports
 import re
-import warnings
 import subprocess
 import numpy as np
 import pandas as pd
@@ -22,8 +21,6 @@ class table_verifier:
     the user determine the delay between the moment a new partition is appended
     and the date of the information it contains.
     """
-
-
     # Init class
     def __init__(
         self, path, partition_field, partition_format,
@@ -68,13 +65,17 @@ class table_verifier:
         self.samples = samples
         self._fitted = False
 
-
     # Fit
     def fit(self):
         """Fit a table_verifier instance on the sampled partitions."""
 
         # Get dataframe
-        df = _ls_to_pd(self.path, self.partition_field, self.partition_format, self.samples)
+        df = _ls_to_pd(
+            self.path,
+            self.partition_field,
+            self.partition_format,
+            self.samples
+        )
 
         # Drop batch processes (1)
         df['drop'] = (
@@ -99,14 +100,13 @@ class table_verifier:
         self.delay_avg = df.loc[df['drop'].eq(0), 'diff'].mean()
         self.delay_median = df.loc[df['drop'].eq(0), 'diff'].median()
 
-
     # Bar plot of information delay (main plot)
     def plot(self):
         """Bar plot of partitions (x-axis) and information delay (y-axis).
-        
+
         This method must be called on a fitted table_verifier instance. It will
-        display a bar plot of the delay (in days) between partitions' write dates
-        and the information they represent.
+        display a bar plot of the delay (in days) between partitions' write
+        dates and the information they represent.
         """
         if self._fitted:
             for i in range(3):
@@ -128,20 +128,19 @@ class table_verifier:
         else:
             raise ValueError('The instance has not been fitted yet.')
 
-
     # Histogram
     def hist(self, show_outliers=False):
         """Histogram of the table's delay (measeured in days).
-        
+
         This method must be called on a fitted table_verifier instance. It will
-        display a histogram of the delay (in days) between partitions' write dates
-        and the information they represent.
-        
+        display a histogram of the delay (in days) between partitions' write
+        dates and the information they represent.
+
         Parameters
         ----------
         show_outliers : bool
-            Hide or show the outliers spotted during the fit process. Outliers are
-            hidden by default.
+            Hide or show the outliers spotted during the fit process. Outliers
+            are hidden by default.
         """
         if self._fitted:
             mask = (
@@ -157,7 +156,6 @@ class table_verifier:
             plt.show()
         else:
             raise ValueError('The instance has not been fitted yet.')
-
 
     # Frequency per day of week
     def dow(self, show_outliers=False):
@@ -198,11 +196,16 @@ def _parse(console_output, partition_field):
     """Parse the output returned by `ls`."""
     # Check type
     msg = 'Expected console_output to be a string, but got {} instead.'
-    assert isinstance(console_output, str), msg.format(type(console_output).__name__)
+    assert isinstance(
+        console_output, str
+    ), msg.format(type(console_output).__name__)
 
     # Split output and keep partition lines
     files = console_output.split('\\n')
-    files = [re.split(r'\s+', line.strip()) for line in files if partition_field in line]
+    files = [
+        re.split(r'\s+', line.strip())
+        for line in files if partition_field in line
+    ]
 
     # Check if partition field exists
     if len(files) == 0:
@@ -221,7 +224,9 @@ def _ls_to_pd(path, partition_field, partition_format, samples):
 
     # Check type
     msg = 'Expected parsed_list to be a list, but got {} instead.'
-    assert isinstance(parsed_list, list), msg.format(type(parsed_list).__name__)
+    assert isinstance(
+        parsed_list, list
+    ), msg.format(type(parsed_list).__name__)
 
     # Create DataFrame
     df = pd.DataFrame(
@@ -235,26 +240,28 @@ def _ls_to_pd(path, partition_field, partition_format, samples):
     # Assign columns
     try:
         df = df.assign(
-            date_mod = pd.to_datetime(
+            date_mod=pd.to_datetime(
                 arg=df['mod_date'] + df['mod_hour'],
                 format='%Y-%m-%d%H:%M'
-            ),  # TO DO: Convert to timezone
-            date_part = pd.to_datetime(
-                arg=df['path'].str.split(partition_field + '=', expand=True)[1],
+            ),  # TO DO: Convert to timezone
+            date_part=pd.to_datetime(
+                arg=df['path'].str.split(
+                    partition_field + '=', expand=True
+                )[1],
                 format=partition_format
             )
         )
         df = df.assign(
-            dow = df['date_mod'].dt.dayofweek,
-            diff = (
+            dow=df['date_mod'].dt.dayofweek,
+            diff=(
                 (df['date_mod'] - df['date_part']).dt.total_seconds()
                 / (24 * 60 * 60)
             )
         )
         df['diff_d1'] = df['diff'].shift(1) - df['diff']
 
-    except:
-        msg = 'partition_format is set to {} and does not match console output.'
+    except ValueError:
+        msg = 'partition_format {} does not match console output.'
         raise ValueError(msg.format(partition_format))
 
     # Return dataframe
