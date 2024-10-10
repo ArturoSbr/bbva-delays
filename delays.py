@@ -15,7 +15,7 @@ _summary = """{} partitions of table {} were analyzed.
 The table seems to have been updated {} times over the last {} periods ({}%).
 Use the `.plot()` method for more details.
 On average, each partition has a {}-day delay. We therefore suggest simulating
-a {}-day delay.
+a {}-day delay when querying the latest partition.
 {} are the days with the most writes, so the latest information is likely to be
 available {} days after that.
 {} are the days with the least writes, so you probalby don't want to fetch it
@@ -110,6 +110,9 @@ class table_verifier:
         self.delay_avg = df.loc[df['drop'].eq(0), 'diff'].mean()
         self.delay_median = df.loc[df['drop'].eq(0), 'diff'].median()
 
+        # Print summary
+        self._summarize()
+
     # Function that summarizes results
     def _summarize(self):
         """Summarize instance's results."""
@@ -120,7 +123,7 @@ class table_verifier:
 
         # Get number of outliers
         _outliers = self.df['drop'].ne(0).sum()
-        _outliers_ratio = _outliers / self.samples * 100
+        _outliers_pct = _outliers / self.samples * 100
 
         # Roof of average delay
         _delay = int(np.ceil(self.delay_avg))
@@ -157,8 +160,8 @@ class table_verifier:
             _name,
             _outliers,
             self.samples,
-            round(_outliers_ratio * 100, 2),
-            self.delay_avg,
+            round(_outliers_pct, 2),
+            round(self.delay_avg, 1),
             _delay,
             _most,
             _delay,
