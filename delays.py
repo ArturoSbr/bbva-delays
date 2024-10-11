@@ -11,6 +11,16 @@ _dow = [
     'Monday', 'Tuesday', 'Wednesday', 'Thursday',
     'Friday', 'Saturday', 'Sunday'
 ]
+_summary = """{} partitions of table {} were analyzed.
+The table seems to have been updated {} times over the last {} periods ({}%).
+Use the `.plot()` method for more details.
+On average, each partition has a {}-day delay. We therefore suggest simulating
+a {}-day delay when querying the latest partition.
+{} are the days with the most writes, so the latest information is likely to be
+available {} days after that.
+{} are the days with the least writes, so you probalby don't want to fetch it
+{} days after that.
+"""
 
 
 # Class that checks tables stored in an HDFS
@@ -99,6 +109,68 @@ class table_verifier:
         self.df = df
         self.delay_avg = df.loc[df['drop'].eq(0), 'diff'].mean()
         self.delay_median = df.loc[df['drop'].eq(0), 'diff'].median()
+
+        # Print summary
+        self._summarize()
+
+    # Function that summarizes results
+    def _summarize(self):
+        """Summarize instance's results."""
+
+        # Fetch table's name
+        _p = self.path.split('/')
+        _name = _p[-1] if _p[-1] != '' else _p[-2]
+
+        # Get number of outliers
+        _outliers = self.df['drop'].ne(0).sum()
+        _outliers_pct = _outliers / self.samples * 100
+
+        # Roof of average delay
+        _delay = int(np.ceil(self.delay_avg))
+
+        # Rank days
+        _ranked = self.df.groupby('dow').size().rank(
+            ascending=False,
+            method='dense'
+        )
+        _most = [_dow[i] for i in _ranked[_ranked.eq(1.0)].index.values]
+        _least = [
+            _dow[i] for i in _ranked[_ranked.eq(_ranked.max())].index.values
+        ]
+
+        # Day(s) with most writes
+        if len(_most) == 1:
+            _most = _most[0] + 's'
+        elif len(_most) == 2:
+            _most = ' and '.join(_most)
+        else:
+            _most = ', '.join(_most[:-1]) + ' and ' + _most[:-1]
+
+        # Day(s) with least writes
+        if len(_least) == 1:
+            _least = _least[0] + 's'
+        elif len(_least) == 2:
+            _least = ' and '.join(_least)
+        else:
+            _least = ', '.join(_least[:-1]) + ' or ' + _least[:-1]
+
+        # Declare output message
+        m = _summary.format(
+            self.samples,
+            _name,
+            _outliers,
+            self.samples,
+            round(_outliers_pct, 2),
+            round(self.delay_avg, 1),
+            _delay,
+            _most,
+            _delay,
+            _least,
+            _delay
+        )
+
+        # Print summary
+        print(m)
 
     # Bar plot of information delay (main plot)
     def plot(self):
