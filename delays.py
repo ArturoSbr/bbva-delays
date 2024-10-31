@@ -144,7 +144,7 @@ class table_verifier:
         elif len(_most) == 2:
             _most = ' and '.join(_most)
         else:
-            _most = ', '.join(_most[:-1]) + ' and ' + _most[:-1]
+            _most = ', '.join(_most[:-1]) + ' and ' + _most[-1]
 
         # Day(s) with least writes
         if len(_least) == 1:
@@ -152,7 +152,7 @@ class table_verifier:
         elif len(_least) == 2:
             _least = ' and '.join(_least)
         else:
-            _least = ', '.join(_least[:-1]) + ' or ' + _least[:-1]
+            _least = ', '.join(_least[:-1]) + ' or ' + _least[-1]
 
         # Declare output message
         m = _summary.format(
@@ -249,9 +249,19 @@ class table_verifier:
 # Verify path
 def ls(path):
     """List the partitions available in the path provided by the user."""
+    # Fetch credentials
+    try:
+        _s = subprocess.run(['klist'], capture_output=True)
+        _cache = _s.stdout.decode().split('\n')[0].split('FILE:')[1]
+        _env = os.environ.copy()
+        _env['KRB5CCNAME'] = _cache
+    except Exception as e:
+        raise RuntimeError('Unable to run `klist` to fetch credentials. {e}')
+
     # Run -ls
     cmd = subprocess.run(
         ['hdfs', 'dfs', '-ls', path],
+        env=_env,
         capture_output=True
     )
 
@@ -260,7 +270,7 @@ def ls(path):
         output = str(cmd.stdout)
         return output
     else:
-        raise FileNotFoundError(cmd.sterror)
+        raise FileNotFoundError(cmd.stderr.decode('utf-8'))
 
 
 # Parse ls output
