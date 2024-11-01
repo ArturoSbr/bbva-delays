@@ -4,6 +4,7 @@ import subprocess
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from typing import List
 
 # Labels for plot
 _labels = {0: 'Keep', 1: 'Batch process', 2: 'Outlier'}
@@ -133,16 +134,20 @@ class table_verifier:
             self.df
             .groupby('dow')
             .size()
-            .rank(ascending=False, method='dense')
             .merge(
                 right=pd.DataFrame(index=_dow),
+                how='right',
                 left_index=True,
                 right_index=True
             )  # Make sure all weekdays appear in result
+            .rank(method='dense', na_option='bottom', ascending=False)
+            ['size'].values
         )
-        _most = [_dow[i] for i in _ranked[_ranked.eq(1.0)].index.values]
-        _least = [
-            _dow[i] for i in _ranked[_ranked.eq(_ranked.max())].index.values
+        _most = [_dow[i] for i in np.where(_ranked == 1.0)]
+        _best = [dow[(i + _delay) % 6] for i in np.where(_ranked == 1.0)]
+        _least = [_dow[i] for i in np.where(_ranked == _ranked.max())]
+        _worst = [
+            _dow[(i + _delay) % 6] for i in np.where(_ranked == _ranked.max())
         ]
 
         # Day(s) with most writes
@@ -355,3 +360,14 @@ def _ls_to_pd(path, partition_field, partition_format, samples):
 
     # Return dataframe
     return df
+
+
+# Pretty print the elements of a list
+def _list_to_text(l: List[str]):
+    if len(l) == 1:
+        ret = l[0] + 's'
+    elif len(l) == 2:
+        ret = ' and '.join(l)
+    else:
+        ret = ', '.join(l[:-1]) + f' and {l[-1]}'
+    return ret
