@@ -260,7 +260,7 @@ def ls(path):
         _env = os.environ.copy()
         _env['KRB5CCNAME'] = _cache
     except Exception as e:
-        raise RuntimeError('Unable to run `klist` to fetch credentials. {e}')
+        raise RuntimeError(f'Unable to run `klist` to fetch credentials. {e}')
 
     # Run -ls
     cmd = subprocess.run(
@@ -355,11 +355,11 @@ def _ls_to_pd(path, partition_field, partition_format, samples):
 
 
 # Pretty print the elements of a list
-def _list_to_text(l: List[str], logic='and'):
-    if len(l) == 1:
-        ret = l[0] + 's'
-    elif len(l) == 2:
-        ret = f' {logic} '.join(l)
+def _list_to_text(_list: List[str], logic='and'):
+    if len(_list) == 1:
+        ret = _list[0] + 's'
+    elif len(_list) == 2:
+        ret = f' {logic} '.join(_list)
     else:
-        ret = ', '.join(l[:-1]) + f' {logic} {l[-1]}'
+        ret = ', '.join(_list[:-1]) + f' {logic} {_list[-1]}'
     return ret
