@@ -1,6 +1,7 @@
 # Imports
 import os
 import re
+import warnings
 import subprocess
 import numpy as np
 import pandas as pd
@@ -113,6 +114,11 @@ class table_verifier:
         self.delay_median = df.loc[df['drop'].eq(0), 'diff'].median()
 
         # Print summary
+        if df['diff'].mean() > 10:
+            warnings.warn(
+                'Only daily tables are supported in the current version. '
+                + 'Support for other frequencies will be added soon.'
+            )
         self._summarize()
 
     # Function that summarizes results
