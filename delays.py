@@ -1,4 +1,5 @@
 # Imports
+import os
 import re
 import subprocess
 import numpy as np
@@ -18,9 +19,9 @@ Use the `.plot()` method for more details.
 On average, each partition has a {}-day delay. We therefore suggest simulating
 a {}-day delay when querying the latest partition.
 {} are the days with the most writes, so the latest information is likely to be
-available {} days after that.
+available on {}.
 {} are the days with the least writes, so you probalby don't want to fetch it
-{} days after that.
+on {}.
 """
 
 
@@ -131,40 +132,25 @@ class table_verifier:
 
         # Rank days
         _ranked = (
-            self.df
-            .groupby('dow')
-            .size()
-            .merge(
-                right=pd.DataFrame(index=_dow),
-                how='right',
-                left_index=True,
-                right_index=True
-            )  # Make sure all weekdays appear in result
+            pd.concat(
+                [self.df.groupby('dow').size(), pd.Series(_dow)],
+                axis=1
+            )[0]  # Make sure all weekdays appear in result
             .rank(method='dense', na_option='bottom', ascending=False)
-            ['size'].values
         )
-        _most = [_dow[i] for i in np.where(_ranked == 1.0)]
-        _best = [dow[(i + _delay) % 6] for i in np.where(_ranked == 1.0)]
-        _least = [_dow[i] for i in np.where(_ranked == _ranked.max())]
+        _most = [_dow[i] for i in np.where(_ranked == 1.0)[0]]
+        _best = [_dow[(i + _delay) % 6] for i in np.where(_ranked == 1.0)[0]]
+        _least = [_dow[i] for i in np.where(_ranked == _ranked.max())[0]]
         _worst = [
-            _dow[(i + _delay) % 6] for i in np.where(_ranked == _ranked.max())
+            _dow[(i + _delay) % 6]
+            for i in np.where(_ranked == _ranked.max())[0]
         ]
 
         # Day(s) with most writes
-        if len(_most) == 1:
-            _most = _most[0] + 's'
-        elif len(_most) == 2:
-            _most = ' and '.join(_most)
-        else:
-            _most = ', '.join(_most[:-1]) + ' and ' + _most[-1]
-
-        # Day(s) with least writes
-        if len(_least) == 1:
-            _least = _least[0] + 's'
-        elif len(_least) == 2:
-            _least = ' and '.join(_least)
-        else:
-            _least = ', '.join(_least[:-1]) + ' or ' + _least[-1]
+        _most = _list_to_text(_most)
+        _best = _list_to_text(_best)
+        _least = _list_to_text(_least, 'or')
+        _worst = _list_to_text(_worst, 'or')
 
         # Declare output message
         m = _summary.format(
@@ -176,9 +162,9 @@ class table_verifier:
             round(self.delay_avg, 1),
             _delay,
             _most,
-            _delay,
+            _best,
             _least,
-            _delay
+            _worst
         )
 
         # Print summary
@@ -363,11 +349,11 @@ def _ls_to_pd(path, partition_field, partition_format, samples):
 
 
 # Pretty print the elements of a list
-def _list_to_text(l: List[str]):
+def _list_to_text(l: List[str], logic='and'):
     if len(l) == 1:
         ret = l[0] + 's'
     elif len(l) == 2:
-        ret = ' and '.join(l)
+        ret = f' {logic} '.join(l)
     else:
-        ret = ', '.join(l[:-1]) + f' and {l[-1]}'
+        ret = ', '.join(l[:-1]) + f' {logic} {l[-1]}'
     return ret
