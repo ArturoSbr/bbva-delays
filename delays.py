@@ -129,9 +129,16 @@ class table_verifier:
         _delay = int(np.ceil(self.delay_avg))
 
         # Rank days
-        _ranked = self.df.groupby('dow').size().rank(
-            ascending=False,
-            method='dense'
+        _ranked = (
+            self.df
+            .groupby('dow')
+            .size()
+            .rank(ascending=False, method='dense')
+            .merge(
+                right=pd.DataFrame(index=_dow),
+                left_index=True,
+                right_index=True
+            )  # Make sure all weekdays appear in result
         )
         _most = [_dow[i] for i in _ranked[_ranked.eq(1.0)].index.values]
         _least = [
